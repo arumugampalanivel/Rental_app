@@ -19,6 +19,7 @@ import 'screens/edit_room_building_screen.dart';
 import 'screens/rooms_screen.dart';
 import 'screens/all_rent_history_screen.dart';
 import 'screens/room_details_screen.dart';
+import 'screens/settings_screen.dart';
 
 // <- THIS is required for join()
 
@@ -152,6 +153,9 @@ class RentManagerApp extends StatelessWidget {
               builder: (_) =>
                   const TenantListScreen(isSelectingForRentUpdate: true),
             );
+
+          case '/settings':
+            return MaterialPageRoute(builder: (_) => const SettingsScreen());
         }
 
         return null; // fallback

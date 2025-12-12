@@ -54,7 +54,7 @@ class DBHelper {
 
     // TENANT ROOM ASSIGNMENT TABLE
     await db.execute('''
-    CREATE TABLE room (
+    CREATE TABLE rooms (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       tenant_id INTEGER,
       room_no TEXT,
@@ -66,8 +66,9 @@ class DBHelper {
   ''');
 
     await db.execute('''
-  CREATE TABLE rooms (
+  CREATE TABLE room (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER,
     room_no TEXT,
     floor TEXT,
     location TEXT,
