@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class RoomDetailsScreen extends StatefulWidget {
-  static const String routeName = '/room-details';
+  static const String routeName = "/room-details-building";
 
   const RoomDetailsScreen({super.key});
 

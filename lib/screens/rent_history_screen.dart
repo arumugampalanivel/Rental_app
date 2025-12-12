@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import '../database/db_helper.dart';
-import '../utils/pdf_receipt.dart';
-
-late String tenantName;
-late String roomNo;
+import '/screens/add_rent_screen.dart';
 
 class RentHistoryScreen extends StatefulWidget {
-  static const routeName = '/rent-history';
+  static const String routeName = '/rent-history';
 
   const RentHistoryScreen({super.key});
 
@@ -15,38 +12,30 @@ class RentHistoryScreen extends StatefulWidget {
 }
 
 class _RentHistoryScreenState extends State<RentHistoryScreen> {
+  final db = DBHelper();
+
   int tenantId = 0;
-  String selectedFilter = "All";
-  List<Map<String, dynamic>> fullHistory = [];
-  List<Map<String, dynamic>> filteredHistory = [];
+  List<Map<String, dynamic>> rentList = [];
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final args =
-        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    tenantId = args["tenantId"];
-    tenantId = args["tenantId"];
-    tenantName = args["tenantName"]; // Auto-loaded
-    roomNo = args["roomNo"]; // Auto-loaded
-    loadHistory();
+    tenantId = ModalRoute.of(context)!.settings.arguments as int;
+    loadRentHistory();
   }
 
-  Future<void> loadHistory() async {
-    fullHistory = await DBHelper().getRentHistory(tenantId);
-    applyFilter();
-  }
-
-  void applyFilter() {
+  Future<void> loadRentHistory() async {
+    final data = await db.getRentHistory(tenantId);
     setState(() {
-      if (selectedFilter == "All") {
-        filteredHistory = fullHistory;
-      } else {
-        filteredHistory = fullHistory
-            .where((r) => r['status'] == selectedFilter)
-            .toList();
-      }
+      rentList = data;
     });
+  }
+
+  Future<void> deleteRent(int id) async {
+    final database = await db.database;
+    await database.delete('rent_history', where: 'id = ?', whereArgs: [id]);
+
+    loadRentHistory();
   }
 
   Color getStatusColor(String status) {
@@ -62,19 +51,6 @@ class _RentHistoryScreenState extends State<RentHistoryScreen> {
     }
   }
 
-  IconData getStatusIcon(String status) {
-    switch (status) {
-      case "Paid":
-        return Icons.check_circle;
-      case "Pending":
-        return Icons.error;
-      case "Partial":
-        return Icons.pending_actions;
-      default:
-        return Icons.info;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -83,99 +59,111 @@ class _RentHistoryScreenState extends State<RentHistoryScreen> {
         backgroundColor: const Color(0xFF008080),
       ),
 
-      body: Column(
-        children: [
-          // FILTER BAR
-          Padding(
-            padding: const EdgeInsets.all(10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                filterChip("All"),
-                filterChip("Paid"),
-                filterChip("Pending"),
-                filterChip("Partial"),
-              ],
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: const Color(0xFF008080),
+        child: const Icon(Icons.add),
+        onPressed: () async {
+          bool? refresh = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AddRentScreen(tenantId: tenantId),
             ),
-          ),
-
-          Expanded(
-            child: filteredHistory.isEmpty
-                ? const Center(child: Text("No rent records found"))
-                : ListView.builder(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: filteredHistory.length,
-                    itemBuilder: (context, index) {
-                      final r = filteredHistory[index];
-                      final status = r['status'];
-
-                      return Card(
-                        color: getStatusColor(status).withOpacity(0.15),
-                        elevation: 3,
-                        margin: const EdgeInsets.only(bottom: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: ListTile(
-                          leading: Icon(
-                            getStatusIcon(status),
-                            color: getStatusColor(status),
-                            size: 32,
-                          ),
-                          title: Text(
-                            "${r['month']} — ₹${r['amount']}",
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          subtitle: Text(
-                            "Status: $status\nPaid Date: ${r['paid_date']}\nNote: ${r['note'] ?? ''}",
-                          ),
-
-                          trailing: IconButton(
-                            icon: const Icon(
-                              Icons.picture_as_pdf,
-                              color: Colors.teal,
-                            ),
-                            onPressed: () {
-                              RentReceiptPDF.generate(
-                                tenantName:
-                                    tenantName, // auto-loaded from arguments
-                                roomNo: roomNo, // auto-loaded from arguments
-                                month: r['month'],
-                                amount: r['amount'],
-                                paidDate: r['paid_date'],
-                                status: r['status'],
-                                note: r['note'] ?? "",
-                              );
-                            },
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ],
+          );
+          if (refresh == true) loadRentHistory();
+        },
       ),
-    );
-  }
 
-  Widget filterChip(String label) {
-    final isSelected = selectedFilter == label;
+      body: rentList.isEmpty
+          ? const Center(child: Text("No rent history yet"))
+          : ListView.builder(
+              padding: const EdgeInsets.all(12),
+              itemCount: rentList.length,
+              itemBuilder: (context, index) {
+                final rent = rentList[index];
 
-    return ChoiceChip(
-      label: Text(label),
-      selected: isSelected,
-      selectedColor: const Color(0xFF008080),
-      backgroundColor: Colors.grey.shade200,
-      labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.black),
-      onSelected: (_) {
-        setState(() {
-          selectedFilter = label;
-          applyFilter();
-        });
-      },
+                return Card(
+                  elevation: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Month
+                        Text(
+                          rent["month"] ?? "",
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF004D4D),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+
+                        // Amount
+                        Text(
+                          "Amount: ₹${rent["amount"]}",
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+
+                        // Status with color
+                        Text(
+                          "Status: ${rent["status"]}",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: getStatusColor(rent["status"]),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+
+                        // Paid Date
+                        Text(
+                          "Paid Date: ${rent["paid_date"] ?? "-"}",
+                          style: const TextStyle(fontSize: 15),
+                        ),
+                        const SizedBox(height: 6),
+
+                        // Notes
+                        if (rent["note"] != null &&
+                            rent["note"].toString().isNotEmpty)
+                          Text(
+                            "Notes: ${rent["note"]}",
+                            style: const TextStyle(fontSize: 15),
+                          ),
+
+                        const SizedBox(height: 14),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            TextButton(
+                              onPressed: () {
+                                // TODO: Implement Edit Rent
+                              },
+                              child: const Text("Edit"),
+                            ),
+                            TextButton(
+                              onPressed: () => deleteRent(rent["id"]),
+                              child: const Text(
+                                "Delete",
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
     );
   }
 }

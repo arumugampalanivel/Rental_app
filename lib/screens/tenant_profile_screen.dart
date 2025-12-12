@@ -263,10 +263,10 @@ class _TenantProfileScreenState extends State<TenantProfileScreen> {
                           },
                         ).then((_) => setState(() {}));
                       },
-                      child: const Text("Add Rent"),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF008080),
                       ),
+                      child: const Text("Add Rent"),
                     ),
 
                     // VIEW HISTORY

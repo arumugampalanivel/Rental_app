@@ -34,10 +34,18 @@ class _AddRentScreenState extends State<AddRentScreen> {
   }
 
   Future<void> saveRent() async {
+    // Basic validation
+    if (amountController.text.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Please enter amount")));
+      return;
+    }
+
     final data = {
       "tenant_id": widget.tenantId,
       "month": monthController.text,
-      "amount": amountController.text,
+      "amount": double.tryParse(amountController.text) ?? 0.0, // ensure numeric
       "paid_date": paidDateController.text,
       "status": selectedStatus,
       "note": noteController.text,

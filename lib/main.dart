@@ -4,7 +4,6 @@ import 'screens/dashboard_screen.dart';
 import 'screens/tenant_list_screen.dart';
 import 'screens/tenant_registration_screen.dart';
 import 'screens/company_details_screen.dart';
-import 'screens/room_details_screen.dart';
 import 'screens/summary_screen.dart';
 import 'screens/tenant_profile_screen.dart';
 import 'screens/login_screen.dart';
@@ -13,6 +12,13 @@ import 'screens/edit_room_screen.dart';
 import 'screens/add_rent_screen.dart';
 import 'screens/rent_history_screen.dart';
 import 'screens/edit_personal_screen.dart';
+import 'screens/add_room_screen.dart';
+import 'screens/room_details_building_screen.dart';
+import '../models/room_model.dart';
+import 'screens/edit_room_building_screen.dart';
+import 'screens/rooms_screen.dart';
+import 'screens/all_rent_history_screen.dart';
+import 'screens/room_details_screen.dart';
 
 // <- THIS is required for join()
 
@@ -60,16 +66,43 @@ class RentManagerApp extends StatelessWidget {
               settings: settings,
             );
 
+          case '/rooms':
+            return MaterialPageRoute(builder: (_) => const RoomsScreen());
+
           case '/room-details':
             return MaterialPageRoute(
               builder: (_) => const RoomDetailsScreen(),
-              settings: settings, // passes the arguments safely
+              settings: settings,
+            );
+
+          case '/add-room':
+            return MaterialPageRoute<bool>(
+              builder: (_) => const AddRoomScreen(),
+            );
+
+          case RoomDetailsBuildingScreen.routeName:
+            final room = settings.arguments as RoomModel;
+            return MaterialPageRoute<bool>(
+              builder: (_) => RoomDetailsBuildingScreen(),
+              settings: RouteSettings(arguments: room),
+            );
+
+          case EditRoomBuildingScreen.routeName:
+            final room = settings.arguments as RoomModel;
+            return MaterialPageRoute<bool>(
+              builder: (_) => const EditRoomBuildingScreen(),
+              settings: RouteSettings(arguments: room),
             );
 
           case '/summary':
             return MaterialPageRoute(
               builder: (_) => SummaryScreen(),
               settings: settings,
+            );
+
+          case '/payment-history':
+            return MaterialPageRoute(
+              builder: (_) => const AllRentHistoryScreen(),
             );
 
           case '/dashboard': // ADD THIS
@@ -106,8 +139,19 @@ class RentManagerApp extends StatelessWidget {
               builder: (_) => AddRentScreen(tenantId: args['tenantId']),
             );
 
-          case '/rent-history':
-            return MaterialPageRoute(builder: (_) => const RentHistoryScreen());
+          case RentHistoryScreen.routeName:
+            final tenantId = settings.arguments as int;
+            return MaterialPageRoute(
+              builder: (_) => const RentHistoryScreen(),
+              settings: RouteSettings(arguments: tenantId),
+            );
+
+          case '/rent-update-flow':
+            // Open tenant list for selecting a tenant first
+            return MaterialPageRoute(
+              builder: (_) =>
+                  const TenantListScreen(isSelectingForRentUpdate: true),
+            );
         }
 
         return null; // fallback

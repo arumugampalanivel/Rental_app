@@ -4,7 +4,9 @@ import '../database/db_helper.dart';
 import 'tenant_profile_screen.dart';
 
 class TenantListScreen extends StatefulWidget {
-  const TenantListScreen({super.key});
+  final bool isSelectingForRentUpdate;
+
+  const TenantListScreen({super.key, this.isSelectingForRentUpdate = false});
 
   @override
   State<TenantListScreen> createState() => _TenantListScreenState();
@@ -30,7 +32,11 @@ class _TenantListScreenState extends State<TenantListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Tenant List"),
+        title: Text(
+          widget.isSelectingForRentUpdate
+              ? "Select Tenant for Rent Update"
+              : "Tenant List",
+        ),
         backgroundColor: const Color(0xFF008080),
       ),
 
@@ -43,12 +49,23 @@ class _TenantListScreenState extends State<TenantListScreen> {
 
                 return GestureDetector(
                   onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => TenantProfileScreen(tenantId: t['id']),
-                      ),
-                    );
+                    if (widget.isSelectingForRentUpdate) {
+                      // Rent update mode
+                      Navigator.pushNamed(
+                        context,
+                        '/add-rent',
+                        arguments: {"tenantId": t['id']},
+                      );
+                    } else {
+                      // Normal mode → open profile
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              TenantProfileScreen(tenantId: t['id']),
+                        ),
+                      );
+                    }
                   },
                   child: Container(
                     margin: const EdgeInsets.symmetric(
@@ -85,11 +102,7 @@ class _TenantListScreenState extends State<TenantListScreen> {
                                 ),
                               ),
                               const SizedBox(height: 5),
-
-                              // Room No
                               Text("Room: ${t['room_no'] ?? '-'}"),
-
-                              // Mobile
                               Text("Mobile: ${t['mobile'] ?? '-'}"),
                             ],
                           ),
@@ -101,6 +114,7 @@ class _TenantListScreenState extends State<TenantListScreen> {
               },
             ),
 
+      // FAB ONLY for adding new tenant (not for rent)
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFF008080),
         child: const Icon(Icons.add),

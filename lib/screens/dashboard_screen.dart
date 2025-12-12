@@ -1,39 +1,112 @@
 import 'package:flutter/material.dart';
+import '../database/db_helper.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
   static const String routeName = '/dashboard';
 
   @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  final db = DBHelper();
+
+  int totalTenants = 0;
+  int pendingTenants = 0;
+  double monthlyCollected = 0.0;
+  int totalRooms = 0;
+  int occupiedRooms = 0;
+  int vacantRooms = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    loadDashboardData();
+  }
+
+  Future<void> loadDashboardData() async {
+    totalTenants = await db.getTotalTenantCount();
+    pendingTenants = await db.getPendingTenantCount();
+    monthlyCollected = await db.getMonthlyCollectedAmount();
+
+    // Rooms
+    final rooms = await db.getAllRooms();
+    totalRooms = rooms.length;
+
+    int occ = 0;
+    final database = await db.database;
+
+    for (var r in rooms) {
+      final result = await database.rawQuery(
+        "SELECT COUNT(*) AS count FROM room WHERE room_no = ?",
+        [r.roomNo],
+      );
+      if ((result.first["count"] as int) > 0) {
+        occ++;
+      }
+    }
+
+    occupiedRooms = occ;
+    vacantRooms = totalRooms - occupiedRooms;
+
+    setState(() {});
+  }
+
+  // Modern statistic card
+  Widget statCard(String title, String value, IconData icon, Color color) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        margin: const EdgeInsets.symmetric(horizontal: 6),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 22,
+              backgroundColor: color,
+              child: Icon(icon, size: 26, color: Colors.white),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final List<_DashboardItem> items = [
-      _DashboardItem(
-        icon: Icons.person_add,
-        label: "New Tenant",
-        route: "/tenant-registration",
-      ),
-      _DashboardItem(
-        icon: Icons.currency_rupee,
-        label: "Rent Update",
-        route: "/add-rent",
-      ),
-      _DashboardItem(icon: Icons.meeting_room, label: "Rooms", route: "/rooms"),
-      _DashboardItem(
-        icon: Icons.group,
-        label: "Tenants List",
-        route: "/tenant-list",
-      ),
-      _DashboardItem(
-        icon: Icons.history,
-        label: "Payment History",
-        route: "/payment-history",
-      ),
-      _DashboardItem(
-        icon: Icons.settings,
-        label: "Settings",
-        route: "/settings",
-      ),
+      _DashboardItem(Icons.person_add, "New Tenant", "/tenant-registration"),
+      _DashboardItem(Icons.currency_rupee, "Rent Update", "/rent-update-flow"),
+      _DashboardItem(Icons.meeting_room, "Rooms", "/rooms"),
+      _DashboardItem(Icons.group, "Tenants List", "/tenant-list"),
+      _DashboardItem(Icons.history, "Payment History", "/payment-history"),
+      _DashboardItem(Icons.settings, "Settings", "/settings"),
     ];
 
     return Scaffold(
@@ -41,19 +114,67 @@ class DashboardScreen extends StatelessWidget {
         title: const Text("Dashboard"),
         backgroundColor: const Color(0xFF008080),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(12),
-        child: GridView.builder(
-          itemCount: items.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 6,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 1.1,
+      body: RefreshIndicator(
+        onRefresh: loadDashboardData,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            children: [
+              // ----------- Modern Stats Section -------------
+              Row(
+                children: [
+                  statCard(
+                    "Tenants",
+                    "$totalTenants",
+                    Icons.people,
+                    Colors.blue,
+                  ),
+                  statCard(
+                    "Pending",
+                    "$pendingTenants",
+                    Icons.warning,
+                    Colors.red,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  statCard(
+                    "Collected",
+                    "₹$monthlyCollected",
+                    Icons.currency_rupee,
+                    Colors.green,
+                  ),
+                  statCard(
+                    "Rooms",
+                    "$occupiedRooms/$totalRooms",
+                    Icons.meeting_room,
+                    Colors.teal,
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 20),
+
+              // ------------ EXISTING GRID MENU (UNCHANGED) -------------
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: items.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 6,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 1.1,
+                ),
+                itemBuilder: (context, index) {
+                  return dashboardCard(context, items[index]);
+                },
+              ),
+            ],
           ),
-          itemBuilder: (context, index) {
-            return dashboardCard(context, items[index]);
-          },
         ),
       ),
     );
@@ -100,9 +221,5 @@ class _DashboardItem {
   final String label;
   final String route;
 
-  _DashboardItem({
-    required this.icon,
-    required this.label,
-    required this.route,
-  });
+  _DashboardItem(this.icon, this.label, this.route);
 }

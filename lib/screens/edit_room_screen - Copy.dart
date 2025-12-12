@@ -11,8 +11,6 @@ class EditRoomScreen extends StatefulWidget {
 }
 
 class _EditRoomScreenState extends State<EditRoomScreen> {
-  final _formKey = GlobalKey<FormState>();
-
   final TextEditingController roomNoController = TextEditingController();
   final TextEditingController advanceController = TextEditingController();
   final TextEditingController rentController = TextEditingController();
@@ -26,7 +24,6 @@ class _EditRoomScreenState extends State<EditRoomScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-
     final args =
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
 
@@ -36,43 +33,10 @@ class _EditRoomScreenState extends State<EditRoomScreen> {
 
     // Pre-fill room details
     roomNoController.text = tenant["room_no"] ?? "";
-    advanceController.text = tenant["advance"]?.toString() ?? "";
-    rentController.text = tenant["rent"]?.toString() ?? "";
+    advanceController.text = tenant["advance"] ?? "";
+    rentController.text = tenant["rent"] ?? "";
     rentDateController.text = tenant["rent_date"] ?? "";
     notesController.text = tenant["notes"] ?? "";
-  }
-
-  // Date Picker
-  Future<void> pickRentDate() async {
-    FocusScope.of(context).unfocus();
-
-    DateTime now = DateTime.now();
-    DateTime? pickedDate = await showDatePicker(
-      context: context,
-      initialDate: rentDateController.text.isNotEmpty
-          ? _parseDate(rentDateController.text)
-          : now,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
-
-    if (pickedDate != null) {
-      rentDateController.text =
-          "${pickedDate.day.toString().padLeft(2, '0')}-"
-          "${pickedDate.month.toString().padLeft(2, '0')}-"
-          "${pickedDate.year}";
-      setState(() {});
-    }
-  }
-
-  DateTime _parseDate(String input) {
-    // Expected format DD-MM-YYYY
-    final parts = input.split('-');
-    return DateTime(
-      int.parse(parts[2]),
-      int.parse(parts[1]),
-      int.parse(parts[0]),
-    );
   }
 
   Future<void> saveUpdates() async {
@@ -102,8 +66,10 @@ class _EditRoomScreenState extends State<EditRoomScreen> {
       "notes": notesController.text,
     };
 
-    await DBHelper().updateTenant(tenant["id"], updatedData);
+    final db = DBHelper();
+    await db.updateTenant(tenant["id"], updatedData);
 
+    // Return to profile screen with updated data
     Navigator.popUntil(context, ModalRoute.withName('/tenant-profile'));
   }
 
@@ -114,63 +80,60 @@ class _EditRoomScreenState extends State<EditRoomScreen> {
         title: const Text("Edit Room Details"),
         backgroundColor: const Color(0xFF008080),
       ),
+
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              CustomInput(label: "Room Number", controller: roomNoController),
-              CustomInput(
-                label: "Advance Paid",
-                controller: advanceController,
-                isNumber: true,
-              ),
-              CustomInput(
-                label: "Monthly Rent",
-                controller: rentController,
-                isNumber: true,
-              ),
+        child: Column(
+          children: [
+            CustomInput(label: "Room Number", controller: roomNoController),
+            CustomInput(label: "Advance Paid", controller: advanceController),
+            CustomInput(label: "Monthly Rent", controller: rentController),
+            GestureDetector(
+              onTap: () async {
+                FocusScope.of(context).unfocus(); // Close keyboard
 
-              // Date Picker Field
-              GestureDetector(
-                onTap: pickRentDate,
-                child: AbsorbPointer(
-                  child: CustomInput(
-                    label: "Rent Paying Date",
-                    controller: rentDateController,
-                  ),
+                DateTime? picked = await showDatePicker(
+                  context: context,
+                  initialDate: DateTime.now(),
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime(2100),
+                );
+
+                if (picked != null) {
+                  rentDateController.text =
+                      "${picked.day.toString().padLeft(2, '0')}-"
+                      "${picked.month.toString().padLeft(2, '0')}-"
+                      "${picked.year}";
+                  setState(() {});
+                }
+              },
+              child: AbsorbPointer(
+                child: CustomInput(
+                  label: "Rent Paying Date",
+                  controller: rentDateController,
                 ),
               ),
+            ),
+            CustomInput(
+              label: "Additional Notes",
+              controller: notesController,
+              maxLines: 3,
+            ),
 
-              CustomInput(
-                label: "Additional Notes",
-                controller: notesController,
-                maxLines: 3,
-              ),
+            const SizedBox(height: 30),
 
-              const SizedBox(height: 25),
-
-              ElevatedButton(
-                onPressed: () {
-                  if (_formKey.currentState!.validate()) {
-                    saveUpdates();
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF008080),
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 14,
-                    horizontal: 30,
-                  ),
-                ),
-                child: const Text(
-                  "Save Changes",
-                  style: TextStyle(fontSize: 18),
+            ElevatedButton(
+              onPressed: saveUpdates,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF008080),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 14,
+                  horizontal: 35,
                 ),
               ),
-            ],
-          ),
+              child: const Text("Save Changes", style: TextStyle(fontSize: 18)),
+            ),
+          ],
         ),
       ),
     );
@@ -180,14 +143,12 @@ class _EditRoomScreenState extends State<EditRoomScreen> {
 class CustomInput extends StatelessWidget {
   final String label;
   final TextEditingController controller;
-  final bool isNumber;
   final int maxLines;
 
   const CustomInput({
     super.key,
     required this.label,
     required this.controller,
-    this.isNumber = false,
     this.maxLines = 1,
   });
 
@@ -195,19 +156,9 @@ class CustomInput extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 15),
-      child: TextFormField(
+      child: TextField(
         controller: controller,
         maxLines: maxLines,
-        keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-        validator: (value) {
-          if (value == null || value.trim().isEmpty) {
-            return "$label is required";
-          }
-          if (isNumber && double.tryParse(value) == null) {
-            return "Enter a valid number";
-          }
-          return null;
-        },
         decoration: InputDecoration(
           labelText: label,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),

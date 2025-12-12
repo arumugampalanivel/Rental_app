@@ -1,6 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:rent_manager/utils/date_utils.dart';
+import '../models/room_model.dart';
 
 class DBHelper {
   static final DBHelper _instance = DBHelper._internal();
@@ -51,18 +52,32 @@ class DBHelper {
       )
     ''');
 
-    // Room Table
+    // TENANT ROOM ASSIGNMENT TABLE
     await db.execute('''
-      CREATE TABLE room (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        tenant_id INTEGER,
-        room_no TEXT,
-        advance TEXT,
-        rent TEXT,
-        rent_date TEXT,
-        notes TEXT
-      )
-    ''');
+    CREATE TABLE room (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id INTEGER,
+      room_no TEXT,
+      advance REAL,
+      rent REAL,
+      rent_date TEXT,
+      notes TEXT
+    )
+  ''');
+
+    await db.execute('''
+  CREATE TABLE rooms (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    room_no TEXT,
+    floor TEXT,
+    location TEXT,
+    advance REAL,
+    rent TEXT,
+    max_occupants INTEGER,
+    notes TEXT,
+    status TEXT
+  )
+''');
 
     // Rent History
     await db.execute('''
@@ -80,6 +95,33 @@ class DBHelper {
   }
 
   // ================= INSERT FUNCTIONS =================
+
+  // tenant count
+
+  Future<int> countTenantsInRoom(int roomId) async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) AS count FROM tenants WHERE room_id = ?',
+      [roomId],
+    );
+    return result.first['count'] as int;
+  }
+
+  Future<List<RoomModel>> getAllRooms() async {
+    final db = await database;
+
+    final List<Map<String, dynamic>> result = await db.query(
+      'rooms',
+      orderBy: 'room_no ASC',
+    );
+
+    return result.map((row) => RoomModel.fromMap(row)).toList();
+  }
+
+  Future<int> deleteRoom(int id) async {
+    final db = await database;
+    return await db.delete('rooms', where: 'id = ?', whereArgs: [id]);
+  }
 
   Future<int> insertTenant(Map<String, dynamic> data) async {
     final db = await database;
@@ -120,6 +162,15 @@ class DBHelper {
       where: 'tenant_id = ?',
       whereArgs: [tenantId],
       orderBy: 'id DESC',
+    );
+  }
+
+  Future<int> removeTenantFromRoom(int tenantId) async {
+    final db = await database;
+    return await db.delete(
+      'room',
+      where: 'tenant_id = ?',
+      whereArgs: [tenantId],
     );
   }
 
@@ -233,6 +284,11 @@ class DBHelper {
       return result.first;
     }
     return null;
+  }
+
+  // room status
+  String getRoomStatus(int current, int max) {
+    return current >= max ? "Occupied" : "Vacant";
   }
 
   //deleteTenant()
